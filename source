@@ -1,0 +1,404 @@
+local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/UI-Libs/main/Vape.txt"))()
+
+local win = lib:Window("Eclipsian Lotus Project (1.0 stable)", Color3.fromRGB(4, 37, 100), Enum.KeyCode.RightControl)
+
+local tabMain = win:Tab("Players")
+local tabAim = win:Tab("Aim")
+local tabHitboxes = win:Tab("Hitboxes")
+local tabScripts = win:Tab("Scripts")
+local tabSky = win:Tab("Sky")
+local tabInformation = win:Tab("Information")
+
+local WallHackEnabled = false
+local AimLockEnabled = false
+local FilledEnabled = false
+local targetPlayer = nil
+local HighlightColor = Color3.fromRGB(4, 37, 100)
+local AimPart = "Head"
+local Keybind = Enum.KeyCode.Z
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+local highlights = {}
+
+local function createHighlight(player)
+    local character = player.Character
+    if character and player ~= LocalPlayer then
+        local highlight = highlights[player]
+        if not highlight or not highlight.Parent then
+            highlight = Instance.new("Highlight")
+            highlight.Name = "PlayerHighlight"
+            highlight.Adornee = character
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.OutlineColor = HighlightColor
+            highlight.OutlineTransparency = 0.5
+            highlight.FillColor = HighlightColor
+            highlight.FillTransparency = FilledEnabled and 0.1 or 1
+            highlight.Parent = character
+
+            highlights[player] = highlight
+        else
+            highlight.Adornee = character
+        end
+    end
+end
+
+local function highlightPlayer(player)
+    if player.Character then
+        createHighlight(player)
+    end
+    player.CharacterAdded:Connect(function()
+        if WallHackEnabled then
+            wait(1)
+            createHighlight(player)
+        end
+    end)
+end
+
+local function highlightAllPlayers()
+    for _, player in ipairs(Players:GetPlayers()) do
+        highlightPlayer(player)
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    highlightPlayer(player)
+end)
+
+highlightAllPlayers()
+
+local function lockMouseToPlayerPart(player)
+    targetPlayer = player
+    UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+end
+
+local function unlockMouse()
+    targetPlayer = nil
+    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+end
+
+local function findNearestPlayerPart(mousePosition)
+    local nearestPlayer = nil
+    local minDistance = math.huge
+    local camera = workspace.CurrentCamera
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local character = player.Character
+            local part = character:FindFirstChild(AimPart)
+            if AimPart == "Torso" and not part then
+                part = character:FindFirstChild("UpperTorso")
+            end
+
+            if part then
+                local partPosition = part.Position
+                local partScreenPosition = camera:WorldToViewportPoint(partPosition)
+
+                if partScreenPosition.Z > 0 then
+                    local distance = (Vector2.new(partScreenPosition.X, partScreenPosition.Y) - mousePosition).magnitude
+                    if distance < minDistance then
+                        minDistance = distance
+                        nearestPlayer = player
+                    end
+                end
+            end
+        end
+    end
+
+    return nearestPlayer
+end
+
+local function updateCamera()
+    if AimLockEnabled and targetPlayer then
+        local character = targetPlayer.Character
+        local part = character:FindFirstChild(AimPart)
+        if AimPart == "Torso" and not part then
+            part = character:FindFirstChild("UpperTorso")
+        end
+
+        if part then
+            local camera = workspace.CurrentCamera
+            local currentCameraCFrame = camera.CFrame
+            local newCameraCFrame = CFrame.new(currentCameraCFrame.Position, part.Position)
+            camera.CFrame = newCameraCFrame
+        else
+            unlockMouse()
+        end
+    end
+end
+
+local function updateWallHack()
+    if WallHackEnabled then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Character then
+                createHighlight(player)
+            end
+        end
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Keybind then
+        if AimLockEnabled then
+            if not targetPlayer then
+                local mouse = LocalPlayer:GetMouse()
+                local mousePosition = Vector2.new(mouse.X, mouse.Y)
+                local nearestPlayer = findNearestPlayerPart(mousePosition)
+                if nearestPlayer then
+                    lockMouseToPlayerPart(nearestPlayer)
+                end
+            else
+                unlockMouse()
+            end
+        end
+    end
+end)
+
+game:GetService("RunService").RenderStepped:Connect(updateCamera)
+game:GetService("RunService").Stepped:Connect(updateWallHack)
+
+local colorPicker = tabMain:Colorpicker("Highlight Color", Color3.fromHex("#042564"), function(color)
+    HighlightColor = color
+    for player, highlight in pairs(highlights) do
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+    highlights = {}
+    if WallHackEnabled then
+        highlightAllPlayers()
+    end
+end)
+
+tabMain:Toggle("WallHack", false, function(t)
+    WallHackEnabled = t
+    if not t then
+        for player, highlight in pairs(highlights) do
+            if highlight then
+                highlight:Destroy()
+            end
+        end
+        highlights = {}
+    else
+        highlightAllPlayers()
+    end
+end)
+
+tabMain:Toggle("Filled", false, function(t)
+    FilledEnabled = t
+    for player, highlight in pairs(highlights) do
+        if highlight then
+            highlight.FillTransparency = t and 0.1 or 1
+        end
+    end
+end)
+
+tabAim:Toggle("Aim Lock", false, function(t)
+    lib:Notification("Notification", "Press " .. Keybind.Name .. " to lock", "Yes")
+    AimLockEnabled = t
+    if not t then
+        unlockMouse()
+    end
+end)
+
+local aimParts = {"Head", "Torso"}
+tabAim:Dropdown("Aim Part", aimParts, function(selectedPart)
+    AimPart = selectedPart
+    lib:Notification("Notification", "Aim Lock part set to " .. selectedPart, "Confirm")
+end)
+
+local alphabetKeys = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
+tabAim:Dropdown("Keybind", alphabetKeys, function(selectedKey)
+    Keybind = Enum.KeyCode[selectedKey]
+    lib:Notification("Notification", "Keybind set to " .. selectedKey, "Confirm")
+end)
+
+local fov = 50
+local RunService = game:GetService("RunService")
+local Cam = game.Workspace.CurrentCamera
+
+local FOVring = Drawing.new("Circle")
+FOVring.Visible = false
+FOVring.Thickness = 0.4
+FOVring.Color = Color3.fromRGB(4, 37, 100)
+FOVring.Filled = false
+FOVring.Radius = fov
+FOVring.Position = Cam.ViewportSize / 2
+
+local function updateDrawings()
+    local camViewportSize = Cam.ViewportSize
+    FOVring.Position = camViewportSize / 2
+end
+
+local function lookAt(target)
+    local lookVector = (target - Cam.CFrame.Position).unit
+    local newCFrame = CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + lookVector)
+    Cam.CFrame = newCFrame
+end
+
+local function getClosestPlayerInFOV(trg_part)
+    local nearest = nil
+    local last = math.huge
+    local playerMousePos = Cam.ViewportSize / 2
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            local part = player.Character and player.Character:FindFirstChild(trg_part)
+            if part then
+                local ePos, isVisible = Cam:WorldToViewportPoint(part.Position)
+                local distance = (Vector2.new(ePos.x, ePos.y) - playerMousePos).Magnitude
+
+                if distance < last and isVisible and distance < fov then
+                    last = distance
+                    nearest = player
+                end
+            end
+        end
+    end
+
+    return nearest
+end
+
+local FOVActive = false
+
+local function toggleFOV()
+    if FOVActive then
+        FOVring.Visible = false
+        RunService:UnbindFromRenderStep("FOVUpdate")
+    else
+        FOVring.Visible = true
+        RunService:BindToRenderStep("FOVUpdate", Enum.RenderPriority.Camera.Value, function()
+            updateDrawings()
+            local closest = getClosestPlayerInFOV("Head")
+            if closest and closest.Character:FindFirstChild("Head") then
+                lookAt(closest.Character.Head.Position)
+            end
+        end)
+    end
+    FOVActive = not FOVActive
+end
+
+tabAim:Toggle("Aimbot", false, function(t)
+    if t then
+        toggleFOV()
+    else
+        FOVring.Visible = false
+        RunService:UnbindFromRenderStep("FOVUpdate")
+        FOVActive = false
+    end
+end)
+
+tabAim:Slider("FOV Radius", 10, 200, fov, function(value)
+    fov = value
+    FOVring.Radius = fov
+for player, highlight in pairs(highlights) do
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+    highlights = {}
+    if WallHackEnabled then
+        highlightAllPlayers()
+    end
+end)
+
+tabAim:Colorpicker("FOV Color", FOVring.Color, function(color)
+    FOVring.Color = color
+end)
+
+tabAim:Toggle("Transparent FOV", false, function(t)
+    FOVring.Visible = not t
+end)
+
+_G.HeadSize = 1
+_G.Disabled = true
+
+game:GetService('RunService').RenderStepped:Connect(function()
+    if _G.Disabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Name ~= LocalPlayer.Name then
+                local character = player.Character
+                if character and character:FindFirstChild("Head") then
+                    local head = character.Head
+                    pcall(function()
+                        head.Size = Vector3.new(_G.HeadSize, _G.HeadSize, _G.HeadSize)
+                        head.Transparency = 1
+                        head.BrickColor = BrickColor.new("Red")
+                        head.Material = Enum.Material.Neon
+                        head.CanCollide = false
+                        head.Massless = true
+                    end)
+                end
+            end
+        end
+    end
+end)
+
+tabHitboxes:Slider("Head Size", 1, 50, _G.HeadSize, function(value)
+    _G.HeadSize = value
+end)
+
+TabHitboxes:Label("May be buggy")
+
+tabScripts:Button("Infinite Yield", function()
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+    lib:Notification("Notification", "Successfully attached.", "Confirm")
+end)
+
+tabScripts:Button("Dex", function()
+    loadstring(game:HttpGet("https://cdn.wearedevs.net/scripts/Dex%20Explorer.txt"))()
+    lib:Notification("Notification", "Successfully attached.", "Confirm")
+end)
+
+tabScripts:Button("Get Other Player Items", function()
+    for i, v in pairs(game.Players:GetChildren()) do
+        wait()
+        for _, b in pairs(v.Backpack:GetChildren()) do
+            b.Parent = game.Players.LocalPlayer.Backpack
+        end
+    end
+    lib:Notification("Notification", "Successfully attached.", "Confirm")
+end)
+
+tabScripts:Button("Air Hub", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Exunys/AirHub/main/AirHub.lua"))()
+    lib:Notification("Notification", "Successfully attached.", "Confirm")
+end)
+
+local newSkybox = {
+    SkyboxBk = "rbxassetid://72727397938538",
+    SkyboxDn = "rbxassetid://123732796674601",
+    SkyboxFt = "rbxassetid://73597915155001",
+    SkyboxLf = "rbxassetid://88253783983418",
+    SkyboxRt = "rbxassetid://136185683490025",
+    SkyboxUp = "rbxassetid://130399279552417"
+}
+
+local function changeSkybox()
+    local lighting = game:GetService("Lighting")
+    local sky = lighting:FindFirstChildOfClass("Sky")
+    
+    if not sky then
+        sky = Instance.new("Sky", lighting)
+    end
+    
+    sky.SkyboxBk = newSkybox.SkyboxBk
+    sky.SkyboxDn = newSkybox.SkyboxDn
+    sky.SkyboxFt = newSkybox.SkyboxFt
+    sky.SkyboxLf = newSkybox.SkyboxLf
+    sky.SkyboxRt = newSkybox.SkyboxRt
+    sky.SkyboxUp = newSkybox.SkyboxUp
+end
+
+tabSky:Button("Pink Skybox", function()
+    changeSkybox()
+    lib:Notification("Notification", "Skybox successfully attached.", "Confirm")
+end)
+
+tabInformation:Label("Developer - Qitain")
+tabInformation:Label("Tester - skywhywalker")
+tabInformation:Label("Special thanks to Ktulhu")
+tabInformation:Label("https://discord.gg/UtcHMjynxV")
+
