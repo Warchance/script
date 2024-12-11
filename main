@@ -1,13 +1,12 @@
 local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/UI-Libs/main/Vape.txt"))()
-
-local win = lib:Window("Eclipsian Lotus Project (1.0 stable)", Color3.fromRGB(4, 37, 100), Enum.KeyCode.RightControl)
+local win = lib:Window("Eclipsian Lotus Project (1.0 release)", Color3.fromRGB(4, 37, 100), Enum.KeyCode.RightControl)
 
 local tabMain = win:Tab("Players")
 local tabAim = win:Tab("Aim")
 local tabHitboxes = win:Tab("Hitboxes")
 local tabScripts = win:Tab("Scripts")
 local tabSky = win:Tab("Sky")
-local tabInformation = win:Tab("Information")
+local tabSettings = win:Tab("Settings")
 
 local WallHackEnabled = false
 local AimLockEnabled = false
@@ -20,7 +19,6 @@ local Keybind = Enum.KeyCode.Z
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
-
 local highlights = {}
 
 local function createHighlight(player)
@@ -37,7 +35,6 @@ local function createHighlight(player)
             highlight.FillColor = HighlightColor
             highlight.FillTransparency = FilledEnabled and 0.1 or 1
             highlight.Parent = character
-
             highlights[player] = highlight
         else
             highlight.Adornee = character
@@ -159,7 +156,7 @@ end)
 game:GetService("RunService").RenderStepped:Connect(updateCamera)
 game:GetService("RunService").Stepped:Connect(updateWallHack)
 
-local colorPicker = tabMain:Colorpicker("Highlight Color", Color3.fromHex("#042564"), function(color)
+local colorPicker = tabSettings:Colorpicker("Highlight Color", Color3.fromRGB(4, 37, 100), function(color)
     HighlightColor = color
     for player, highlight in pairs(highlights) do
         if highlight then
@@ -217,7 +214,7 @@ end)
 
 local fov = 50
 local RunService = game:GetService("RunService")
-local Cam = game.Workspace.CurrentCamera
+local Cam = workspace.CurrentCamera
 
 local FOVring = Drawing.new("Circle")
 FOVring.Visible = false
@@ -228,27 +225,24 @@ FOVring.Radius = fov
 FOVring.Position = Cam.ViewportSize / 2
 
 local function updateDrawings()
-    local camViewportSize = Cam.ViewportSize
-    FOVring.Position = camViewportSize / 2
+    FOVring.Position = Cam.ViewportSize / 2
 end
 
 local function lookAt(target)
     local lookVector = (target - Cam.CFrame.Position).unit
-    local newCFrame = CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + lookVector)
-    Cam.CFrame = newCFrame
+    Cam.CFrame = CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + lookVector)
 end
 
 local function getClosestPlayerInFOV(trg_part)
-    local nearest = nil
-    local last = math.huge
+    local nearest, last = nil, math.huge
     local playerMousePos = Cam.ViewportSize / 2
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= Players.LocalPlayer then
+        if player ~= LocalPlayer then
             local part = player.Character and player.Character:FindFirstChild(trg_part)
             if part then
                 local ePos, isVisible = Cam:WorldToViewportPoint(part.Position)
-                local distance = (Vector2.new(ePos.x, ePos.y) - playerMousePos).Magnitude
+                local distance = (Vector2.new(ePos.X, ePos.Y) - playerMousePos).Magnitude
 
                 if distance < last and isVisible and distance < fov then
                     last = distance
@@ -262,7 +256,6 @@ local function getClosestPlayerInFOV(trg_part)
 end
 
 local FOVActive = false
-
 local function toggleFOV()
     if FOVActive then
         FOVring.Visible = false
@@ -293,18 +286,9 @@ end)
 tabAim:Slider("FOV Radius", 10, 200, fov, function(value)
     fov = value
     FOVring.Radius = fov
-for player, highlight in pairs(highlights) do
-        if highlight then
-            highlight:Destroy()
-        end
-    end
-    highlights = {}
-    if WallHackEnabled then
-        highlightAllPlayers()
-    end
 end)
 
-tabAim:Colorpicker("FOV Color", FOVring.Color, function(color)
+tabSettings:Colorpicker("FOV Color", FOVring.Color, function(color)
     FOVring.Color = color
 end)
 
@@ -340,7 +324,7 @@ tabHitboxes:Slider("Head Size", 1, 50, _G.HeadSize, function(value)
     _G.HeadSize = value
 end)
 
-TabHitboxes:Label("May be buggy")
+tabHitboxes:Label("May be buggy")
 
 tabScripts:Button("Infinite Yield", function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
@@ -348,15 +332,14 @@ tabScripts:Button("Infinite Yield", function()
 end)
 
 tabScripts:Button("Dex", function()
-    loadstring(game:HttpGet("https://cdn.wearedevs.net/scripts/Dex%20Explorer.txt"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/LorekeeperZinnia/Dex/refs/heads/master/main.lua"))()
     lib:Notification("Notification", "Successfully attached.", "Confirm")
 end)
 
 tabScripts:Button("Get Other Player Items", function()
-    for i, v in pairs(game.Players:GetChildren()) do
-        wait()
-        for _, b in pairs(v.Backpack:GetChildren()) do
-            b.Parent = game.Players.LocalPlayer.Backpack
+    for _, player in pairs(Players:GetChildren()) do
+        for _, item in pairs(player.Backpack:GetChildren()) do
+            item.Parent = LocalPlayer.Backpack
         end
     end
     lib:Notification("Notification", "Successfully attached.", "Confirm")
@@ -396,9 +379,3 @@ tabSky:Button("Pink Skybox", function()
     changeSkybox()
     lib:Notification("Notification", "Skybox successfully attached.", "Confirm")
 end)
-
-tabInformation:Label("Developer - Qitain")
-tabInformation:Label("Tester - skywhywalker")
-tabInformation:Label("Special thanks to Ktulhu")
-tabInformation:Label("https://discord.gg/UtcHMjynxV")
-
